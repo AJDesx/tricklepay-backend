@@ -63,6 +63,12 @@ export const DEFAULT_MAX_PAGES_PER_TICK = 1000;
 // Summary aggregates are expensive and commonly polled, so cache them briefly.
 export const DEFAULT_STREAM_SUMMARY_CACHE_TTL_MS = 2_000;
 
+// Default request rate limit: 100 requests per client IP per 60-second
+// window, matching docs/request-size-limits.md. Used by loadConfig below and
+// by server.ts when registering the rate-limit plugin.
+export const DEFAULT_RATE_LIMIT_MAX = 100;
+export const DEFAULT_RATE_LIMIT_WINDOW_MS = 60_000;
+
 function positiveInteger(name: string, fallback: number, min: number): number {
   const raw = process.env[name];
   if (!raw || raw.trim() === "") return fallback;
@@ -149,7 +155,7 @@ export interface Config {
 
 export function loadConfig(): Config {
   const network = optional("NETWORK", "testnet");
-  const networkPassphrase = NETWORK_PASSPHRASES[Network];
+  const networkPassphrase = NETWORK_PASSPHRASES[network];
   if (!networkPassphrase) {
     throw new Error(`Unknown NETWORK "${network}"; expected "testnet" or "mainnet"`);
   }

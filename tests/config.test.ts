@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_MAX_BACKOFF_MS,
   DEFAULT_MAX_PAGES_PER_TICK,
+  DEFAULT_RATE_LIMIT_MAX,
+  DEFAULT_RATE_LIMIT_WINDOW_MS,
   DEFAULT_STREAM_SUMMARY_CACHE_TTL_MS,
   MIN_POLL_INTERVAL_MS,
   isLocalUrl,
