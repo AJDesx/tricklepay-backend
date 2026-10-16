@@ -26,9 +26,9 @@ async function main(): Promise<void> {
   await verifyRpcEndpoint(rpcServer, config.rpcUrl);
 
   const chainHead = await rpcServer.getLatestLedger();
-  if (config.startLedger > chainHead) {
+  if (config.startLedger > chainHead.sequence) {
     throw new Error(
-      `start ledger ${config.startLedger} is beyond the chain head ${chainHead}; no events will ever be indexed. Set INDEXER_START_LEDGER to a value at or below the current chain head.`,
+      `start ledger ${config.startLedger} is beyond the chain head ${chainHead.sequence}; no events will ever be indexed. Set INDEXER_START_LEDGER to a value at or below the current chain head.`,
     );
   }
 
