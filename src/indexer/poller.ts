@@ -260,7 +260,7 @@ export class Poller {
             { err, eventId: raw.id, ledger: raw.ledger },
             "malformed event — skipping",
           );
-          eventsFailed.inc({);
+          eventsFailed.inc({ kind: "malformed" });
           try {
             await recordFailedEvent({
               eventId: raw.id ?? "unknown",
