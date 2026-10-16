@@ -704,6 +704,65 @@ current template — copy it and fill in the required values.
 | `INDEXER_MAX_PAGES_PER_TICK` | No | `1000` | Maximum number of event pages fetched per poll tick. |
 | `STREAM_SUMMARY_CACHE_TTL_MS` | No | `2000` | Summary endpoint cache window in milliseconds. Set to `0` to disable caching. |
 
+### Switching to a different contract
+
+`STREAM_CONTRACT_ID` and `INDEXER_START_LEDGER` must be changed together, and
+the previous contract's indexed state must be cleared. Skipping either step
+leaves the service serving stale or mismatched data.
+
+**Why both variables change together:** The indexer resumes from its saved
+cursor on every restart, not from `INDEXER_START_LEDGER` (that value only
+applies when there is no saved position at all, see
+[`IndexerState`](#database-schema)). Changing only `STREAM_CONTRACT_ID` while
+a cursor from the old contract is still saved makes the indexer resume at the
+old contract's ledger position and poll the new contract's RPC for events at
+that position, which is very unlikely to make sense: the new contract was
+most likely deployed at a different, usually later, ledger, and its events
+start from there.
+
+**Why the previous contract's indexed state must be cleared:** `Stream`,
+`IndexedEvent`, and `FailedEvent` all hold rows keyed by data from the old
+contract (`streamId`, `eventId`) with no column recording which contract they
+came from. Leaving them in place after switching means `/streams` and the
+summary endpoint keep serving the old contract's streams alongside (or
+instead of, depending on ID collisions) the new contract's, and the old
+contract's unresolved `FailedEvent` rows keep showing up in
+[failed-event replay](#failed-event-replay) for a contract the service no
+longer indexes.
+
+**Steps:**
+
+1. Stop the service, or at minimum stop the indexer poller, so nothing writes
+   new rows while you clear the old contract's state.
+2. Clear the previously indexed state. Unlike
+   [resetting the local database](#resetting-the-local-database), this must
+   preserve the Prisma migration history. From a machine with `DATABASE_URL`
+   set to the target database:
+   ```bash
+   echo 'TRUNCATE TABLE "Stream", "IndexedEvent", "FailedEvent", "IndexerState";' | \
+     npx prisma db execute --schema prisma/schema.prisma --stdin
+   ```
+   `IndexerState` is included because its saved cursor and ledger position
+   belong to the old contract; truncating it is what makes
+   `INDEXER_START_LEDGER` take effect again on the next startup, per the
+   explanation above.
+3. Set `STREAM_CONTRACT_ID` to the new contract's address (56 characters,
+   starting with `C`).
+4. Choose `INDEXER_START_LEDGER`:
+   - If you know the ledger the new contract was deployed or initialized at,
+     use that ledger (or slightly before it, to be safe against an
+     off-by-one). Starting earlier than necessary only costs extra RPC calls
+     during backfill; starting later risks silently skipping real events.
+   - If you don't know it, use `0`, which starts indexing from the chain's
+     current latest ledger. This misses any events the new contract already
+     emitted before the switch (acceptable when switching to a freshly
+     deployed contract with no prior history; not appropriate when migrating
+     onto a contract that already has activity you need indexed).
+   - The service validates this at startup and refuses to start if
+     `INDEXER_START_LEDGER` is beyond the chain's current head, since no
+     event could ever satisfy that position (see [index.ts](src/index.ts)).
+5. Restart the service.
+
 ### Printing the effective configuration
 
 Diagnosing a configuration problem means reasoning about defaults and
