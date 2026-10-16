@@ -20,7 +20,7 @@ export const STATUS_CACHE_TTL_MS = 2_000;
 // still be considered ready. A freshly started instance that has never polled
 // (or has only just begun) is not ready, because it cannot yet serve usable
 // data. The value is exported so tests can override it.
-export const READYNESS_MAX_LAG_LEDGERS = 50;
+export const READINESS_MAX_LAG_LEDGERS = 50;
 
 type StatusPayload = {
   indexer: {

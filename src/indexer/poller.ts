@@ -98,7 +98,7 @@ export class Poller {
   }
 
   /** Owns scheduling and failure backoff; one tick is deliberately separate. */
-  private async runLoop(position: Position): Promise<void> {
+  private async runLoop(position: IndexerState): Promise<void> {
     while (this.running) {
       try {
         position = await this.tick(position, () => this.running);
@@ -174,7 +174,7 @@ export class Poller {
   // The cursor is saved after every page, so a backlog interrupted part way
   // through resumes where it stopped rather than starting the tick over.
   /** Execute one poll tick. This can be called directly by tests or tooling. */
-  async tick(position: Position, shouldContinue: () => boolean = () => true): Promise<Position> {
+  async tick(position: IndexerState, shouldContinue: () => boolean = () => true): Promise<IndexerState> {
     let current = position;
     let pages = 0;
     let events = 0;
@@ -187,7 +187,7 @@ export class Poller {
       try {
         page = await getContractEvents(this.server, this.config.contractId, current);
       } catch (err) {
-        rpcErrors.inc({/ operation: "getContractEvents" });
+        rpcErrors.inc({ operation: "getContractEvents" });
         throw err;
       }
 
@@ -260,7 +260,7 @@ export class Poller {
             { err, eventId: raw.id, ledger: raw.ledger },
             "malformed event — skipping",
           );
-          eventsFailed.inc({);
+          eventsFailed.inc({ kind: "malformed" });
           try {
             await recordFailedEvent({
               eventId: raw.id ?? "unknown",

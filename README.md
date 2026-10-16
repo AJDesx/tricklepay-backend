@@ -425,6 +425,9 @@ npm install
 
 ### Running with Docker Compose
 
+For the image contents, runtime user, entrypoint, and exposed port, see
+[docs/container-image.md](docs/container-image.md).
+
 The repository includes a multi-container setup in `docker-compose.yml` that starts both the PostgreSQL database and the API service (which automatically runs pending database migrations on startup).
 
 #### Environment Variables for Docker
