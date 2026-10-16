@@ -675,6 +675,22 @@ current template — copy it and fill in the required values.
 | `INDEXER_MAX_PAGES_PER_TICK` | No | `1000` | Maximum number of event pages fetched per poll tick. |
 | `STREAM_SUMMARY_CACHE_TTL_MS` | No | `2000` | Summary endpoint cache window in milliseconds. Set to `0` to disable caching. |
 
+### Printing the effective configuration
+
+Diagnosing a configuration problem means reasoning about defaults and
+precedence across the table above. `npm run print-config` resolves the same
+`Config` the server would load and prints it as JSON, in the current
+environment, without starting the server:
+
+```
+npm run print-config
+```
+
+`databaseUrl` is redacted (`"[redacted]"`) whenever it carries embedded
+credentials (`postgresql://user:pass@host/db`), so the output is safe to
+paste into a bug report or a chat message. A connection string with no
+embedded credentials is printed as-is.
+
 ### Trusted proxies
 
 Forwarded headers (`X-Forwarded-For`, `X-Forwarded-Proto`) are honoured only
