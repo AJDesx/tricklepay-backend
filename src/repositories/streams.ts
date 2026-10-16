@@ -11,7 +11,7 @@
 import { Prisma, type Stream } from "@prisma/client";
 
 import { prisma, withQueryTimeout } from "../db.js";
-import { indexedStreamsGauge } from "../metrics.js";
+import { indexedStreams } from "../metrics.js";
 
 export interface UpsertStreamInput {
   streamId: bigint;
@@ -186,7 +186,7 @@ export async function insertStream(input: InsertStreamInput, tx: Prisma.Transact
   });
 
   if (result.count > 0) {
-    indexedStreamsGauge.inc();
+    indexedStreams.inc();
     return "applied";
   }
   return "duplicate";

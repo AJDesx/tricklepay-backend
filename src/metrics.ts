@@ -296,6 +296,12 @@ export const eventsFailed = new Counter(
   ["kind"],
 );
 
+/** Number of unresolved failed indexer events awaiting recovery. */
+export const failedEventBacklog = new Gauge(
+  "tricklepay_indexer_failed_event_backlog",
+  "Number of failed indexer events awaiting recovery.",
+);
+
 // Database -----------------------------------------------------------------
 
 /** Database query execution durations in milliseconds. */
