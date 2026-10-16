@@ -94,7 +94,6 @@ export async function applyEvent(
   const handler = eventHandlers[event.kind] as EventHandler<typeof event>;
   return handler(server, contractId, networkPassphrase, event, tx);
 }
-}
 
 // A delta only makes sense against a row that exists. When one arrives for an
 // unknown stream — an indexer backfilling from a ledger after the stream was

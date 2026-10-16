@@ -85,7 +85,7 @@ export class Poller {
 
   // Whether the indexer has made progress. The readiness endpoint uses this to
   // decide whether the service has usable data. Liveness is unaffected.
-  is Ready(): boolean {
+  isReady(): boolean {
     return this.hasProgressed;
   }
 
