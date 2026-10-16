@@ -506,6 +506,30 @@ docker run -d \
 The API listens on `http://localhost:3000`.
 For instructions on pointing the indexer and API to a standalone or containerized local Soroban RPC node, see [Running Against a Local Network](docs/local-network.md).
 
+#### Test database (for integration tests)
+
+The integration suite (`npm run test:integration`) needs a real Postgres
+instance, and pointing it at the same database as development risks wiping
+local data (`beforeAll` clears the `Stream` table before the suite runs).
+`docker-compose.yml` includes an opt-in `postgres-test` service, kept out of
+the default `docker compose up` by a `test` profile, with its own container
+name, port (`5433`, not `5432`) and volume (`pgdata-test`, not `pgdata`), so
+it can never collide with or be mistaken for the development database:
+
+```bash
+docker compose --profile test up -d postgres-test
+DATABASE_URL=postgresql://tricklepay_test:tricklepay_test@localhost:5433/tricklepay_test \
+  npx prisma migrate deploy
+DATABASE_URL=postgresql://tricklepay_test:tricklepay_test@localhost:5433/tricklepay_test \
+  npx vitest run --project integration
+```
+
+Stop it independently of the development database with:
+
+```bash
+docker compose --profile test down -v   # -v also drops the pgdata-test volume
+```
+
 ## Failed events table
 
 The `FailedEvent` table is the indexer's operator-facing safety net. When an
@@ -612,6 +636,11 @@ npm test          # single run, as CI does it
 npm run test:watch
 ```
 
+The integration suite (`npm run test:integration`) is opt-in and needs a real
+Postgres database; see [Test database (for integration
+tests)](#test-database-for-integration-tests) for how to start one without
+touching development data.
+
 ### Unused dependency check
 
 Run `npm run depcheck` to scan for dependencies that are not imported anywhere in the codebase. This helps keep the dependency tree lean and reduces install time and audit surface.
@@ -674,6 +703,22 @@ current template — copy it and fill in the required values.
 | `INDEXER_START_LEDGER` | No | `0` | Ledger to begin indexing from. `0` starts at the chain's latest ledger. |
 | `INDEXER_MAX_PAGES_PER_TICK` | No | `1000` | Maximum number of event pages fetched per poll tick. |
 | `STREAM_SUMMARY_CACHE_TTL_MS` | No | `2000` | Summary endpoint cache window in milliseconds. Set to `0` to disable caching. |
+
+### Printing the effective configuration
+
+Diagnosing a configuration problem means reasoning about defaults and
+precedence across the table above. `npm run print-config` resolves the same
+`Config` the server would load and prints it as JSON, in the current
+environment, without starting the server:
+
+```
+npm run print-config
+```
+
+`databaseUrl` is redacted (`"[redacted]"`) whenever it carries embedded
+credentials (`postgresql://user:pass@host/db`), so the output is safe to
+paste into a bug report or a chat message. A connection string with no
+embedded credentials is printed as-is.
 
 ### Trusted proxies
 
