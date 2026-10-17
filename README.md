@@ -853,6 +853,24 @@ LOG_LEVEL=trace npm start
 {"level":30,"time":1731550800123,"pid":42,"hostname":"worker-1","module":"indexer","msg":"poll complete","lastLedger":56290013,"newEvents":3}
 ```
 
+**Startup configuration line**
+
+The resolved configuration comes from three places — the defaults in
+`src/config.ts`, a `.env` file, and the ambient environment — so the process
+logs what it actually started with as its first line, before anything that
+depends on those values can fail:
+
+```json
+{"level":30,"time":1731550800001,"pid":42,"hostname":"worker-1","msg":"effective configuration","config":{"port":3000,"host":"0.0.0.0","databaseUrl":"postgresql://***:***@db.internal:5432/tricklepay?schema=public","network":"testnet","networkPassphrase":"Test SDF Network ; September 2015","rpcUrl":"https://soroban-testnet.stellar.org","contractId":"CDMB6…","pollIntervalMs":5000,"startLedger":0,"maxBackoffMs":60000,"maxPagesPerTick":1000,"bodyLimit":1048576,"queryStringLimit":2048,"trustedProxies":[]}}
+```
+
+Every field of the `Config` type appears. `DATABASE_URL` is the only one
+carrying a secret: its user and password are replaced with `***`, leaving the
+host, port, database, and parameters, which are what identify the database the
+service is pointed at. A value that cannot be parsed as a URL is logged as
+`[unparseable, redacted]`, since there is no way to tell which part of it is
+the credential.
+
 **Readable logs in development**
 
 Newline-delimited JSON is what a log shipper wants, not what a developer wants
