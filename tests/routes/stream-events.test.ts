@@ -38,10 +38,10 @@ function makeStream() {
   };
 }
 
-async function getHistory(id: string) {
+async function getHistory(id: string, query: string = "") {
   const app = Fastify();
   await app.register(streamRoutes);
-  const response = await app.inject({ method: "GET", url: `/streams/${id}/events` });
+  const response = await app.inject({ method: "GET", url: `/streams/${id}/events${query}` });
   await app.close();
   return response;
 }
@@ -122,5 +122,75 @@ describe("GET /streams/:id/events", () => {
       code: "NOT_FOUND",
       error: "stream not found",
     });
+  });
+
+  it("filters events by kind when kind query parameter is provided", async () => {
+    streamsRepo.getStream.mockResolvedValue(makeStream());
+    indexedEventsRepo.listIndexedEvents.mockResolvedValue([
+      {
+        eventId: "0000000000000000000002",
+        kind: "withdrawn",
+        streamId: "42",
+        ledger: 101,
+        txHash: "0xdef",
+        sender: null,
+        recipient: "GB2recipient",
+        token: null,
+        totalAmount: null,
+        amount: { toString: () => "500" },
+        recipientAmount: null,
+        senderRefund: null,
+        startTime: null,
+        endTime: null,
+        cliffTime: null,
+        closedAt: 101n,
+      },
+    ]);
+
+    const response = await getHistory("42", "?kind=withdrawn");
+    expect(response.statusCode).toBe(200);
+    expect(indexedEventsRepo.listIndexedEvents).toHaveBeenCalledWith(42n, "withdrawn");
+    expect(response.json()).toEqual([
+      expect.objectContaining({
+        eventId: "0000000000000000000002",
+        kind: "withdrawn",
+        amount: "500",
+      }),
+    ]);
+  });
+
+  it("passes created kind to repository when kind=created", async () => {
+    streamsRepo.getStream.mockResolvedValue(makeStream());
+    indexedEventsRepo.listIndexedEvents.mockResolvedValue([]);
+
+    const response = await getHistory("42", "?kind=created");
+    expect(response.statusCode).toBe(200);
+    expect(indexedEventsRepo.listIndexedEvents).toHaveBeenCalledWith(42n, "created");
+  });
+
+  it("passes cancelled kind to repository when kind=cancelled", async () => {
+    streamsRepo.getStream.mockResolvedValue(makeStream());
+    indexedEventsRepo.listIndexedEvents.mockResolvedValue([]);
+
+    const response = await getHistory("42", "?kind=cancelled");
+    expect(response.statusCode).toBe(200);
+    expect(indexedEventsRepo.listIndexedEvents).toHaveBeenCalledWith(42n, "cancelled");
+  });
+
+  it("passes undefined kind to repository when kind query parameter is omitted", async () => {
+    streamsRepo.getStream.mockResolvedValue(makeStream());
+    indexedEventsRepo.listIndexedEvents.mockResolvedValue([]);
+
+    const response = await getHistory("42");
+    expect(response.statusCode).toBe(200);
+    expect(indexedEventsRepo.listIndexedEvents).toHaveBeenCalledWith(42n, undefined);
+  });
+
+  it("returns 400 for an unknown kind", async () => {
+    streamsRepo.getStream.mockResolvedValue(makeStream());
+
+    const response = await getHistory("42", "?kind=unknown");
+    expect(response.statusCode).toBe(400);
+    expect(indexedEventsRepo.listIndexedEvents).not.toHaveBeenCalled();
   });
 });

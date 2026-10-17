@@ -33,7 +33,7 @@ import {
   streamViewSchema,
   STREAM_VIEW_SCHEMA_ID,
 } from "../schema.js";
-import { listIndexedEvents } from "../repositories/indexed-events.js";
+import { listIndexedEvents, type IndexedEventKind } from "../repositories/indexed-events.js";
 import { nowSeconds } from "../lib/time.js";
 import { DEFAULT_STREAM_SUMMARY_CACHE_TTL_MS } from "../config.js";
 
@@ -348,6 +348,17 @@ export async function streamRoutes(
             },
           },
         },
+        querystring: {
+          type: "object",
+          properties: {
+            kind: {
+              type: "string",
+              enum: ["created", "withdrawn", "cancelled"],
+              description: "Filter events by kind (created, withdrawn, or cancelled).",
+            },
+          },
+          additionalProperties: false,
+        },
         response: {
           200: { $ref: STREAM_EVENT_HISTORY_RESPONSE_SCHEMA_ID },
           400: { $ref: ERROR_SCHEMA_ID },
@@ -357,9 +368,15 @@ export async function streamRoutes(
     },
     async (request, reply) => {
       const { id } = request.params as { id: string };
+      const { kind } = (request.query as { kind?: string }) ?? {};
       const streamId = parseStreamId(id);
       if (streamId === null) {
         return sendError(reply, request, 400, "VALIDATION_ERROR", "invalid stream id");
+      }
+
+      const validKinds: readonly string[] = ["created", "withdrawn", "cancelled"];
+      if (kind !== undefined && !validKinds.includes(kind)) {
+        return sendError(reply, request, 400, "VALIDATION_ERROR", "invalid event kind");
       }
 
       const stream = await getStream({ streamId });
@@ -367,7 +384,7 @@ export async function streamRoutes(
         return sendError(reply, request, 404, "NOT_FOUND", "stream not found");
       }
 
-      const events = await listIndexedEvents(streamId);
+      const events = await listIndexedEvents(streamId, kind as IndexedEventKind | undefined);
       reply.header("Cache-Control", "public, max-age=30");
       return events.map((event) => ({
         eventId: event.eventId,

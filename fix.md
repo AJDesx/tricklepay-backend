@@ -1,13 +1,13 @@
-#345 Document the operational runbook for a failing database
+#483 Add a kind filter to the stream events endpoint
 Repo Avatar
 TricklePay/tricklepay-backend
 Summary
-A database outage affects the read API and the indexer differently, and an operator needs to know which symptoms to expect and what recovers automatically.
+GET /streams/:id/events returns every indexed event for a stream. A client that only wants withdrawals, to total payouts for example, must filter locally. A kind parameter accepting created, withdrawn or cancelled is a small database filter.
 
 Acceptance criteria
- A runbook describes the symptoms of a database outage.
- It states what recovers automatically and what needs intervention.
- It names the relevant metrics.
+ A kind parameter filters the events.
+ An unknown kind returns a 400.
+ The OpenAPI document and tests cover it.
 Getting started
 Fork this repository, clone your fork, and add this repo as upstream:
 
@@ -16,10 +16,8 @@ cd tricklepay-backend
 git remote add upstream https://github.com/TricklePay/tricklepay-backend.git
 Create a branch for this issue:
 
-git checkout -b docs/issue-345
+git checkout -b feat/issue-483
 Suggested commit message:
 
-docs: add a runbook for a database outage
+feat: add a kind filter to the events endpoint
 Run npm run typecheck, npm test, and npm run build before opening a pull request and linking this issue.
-
-
