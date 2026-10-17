@@ -695,6 +695,7 @@ current template — copy it and fill in the required values.
 | `HOST` | No | `0.0.0.0` | HTTP server bind address. |
 | `CORS_ORIGIN` | No | - | Allowed browser origin for the web client. |
 | `LOG_LEVEL` | No | `info` | Log verbosity (`trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`). |
+| `LOG_PRETTY` | No | - | Set to `true` for human-readable development logs; requires the `pino-pretty` dev dependency. Output stays JSON when unset. |
 | `BODY_LIMIT` | No | `1048576` | Largest accepted request body in bytes. |
 | `QUERY_STRING_LIMIT` | No | `2048` | Longest accepted URL query string in bytes. |
 | `TRUSTED_PROXIES` | No | - | Comma-separated list of trusted reverse-proxy addresses or IPv4 CIDR blocks. Forwarded headers are ignored when unset. |
@@ -851,6 +852,29 @@ LOG_LEVEL=trace npm start
 ```json
 {"level":30,"time":1731550800123,"pid":42,"hostname":"worker-1","module":"indexer","msg":"poll complete","lastLedger":56290013,"newEvents":3}
 ```
+
+**Readable logs in development**
+
+Newline-delimited JSON is what a log shipper wants, not what a developer wants
+to read. Set `LOG_PRETTY=true` to route the same records through
+[`pino-pretty`](https://github.com/pinojs/pino-pretty) instead:
+
+```bash
+LOG_PRETTY=true npm run dev
+```
+
+```text
+[12:40:00.123] INFO: poll complete
+    module: "indexer"
+    lastLedger: 56290013
+    newEvents: 3
+```
+
+`pino-pretty` is a dev dependency, so it is absent from a production install
+(`npm ci --omit=dev`, the Docker image). Nothing changes there unless the
+variable is set: when it is set and the package cannot be found, the service
+logs a warning naming `LOG_PRETTY` and keeps emitting JSON rather than failing
+to start.
 
 ### Metrics & alerting
 
