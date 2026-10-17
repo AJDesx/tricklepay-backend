@@ -98,3 +98,38 @@ export function failedEventFromDecoded(
     error: error instanceof Error ? error.message : String(error),
   };
 }
+
+export interface PruneFailedEventsOptions {
+  olderThan: Date;
+  dryRun?: boolean;
+}
+
+export interface PruneFailedEventsResult {
+  deletedCount: number;
+  dryRun: boolean;
+  cutoff: Date;
+}
+
+// Prunes failed events whose firstFailedAt timestamp is older than the given cutoff.
+// In dry-run mode, counts the eligible records without deleting them.
+export async function pruneFailedEvents(
+  options: PruneFailedEventsOptions,
+): Promise<PruneFailedEventsResult> {
+  const { olderThan: cutoff, dryRun = false } = options;
+  if (dryRun) {
+    const count = await prisma.failedEvent.count({
+      where: {
+        firstFailedAt: { lt: cutoff },
+      },
+    });
+    return { deletedCount: count, dryRun: true, cutoff };
+  }
+
+  const result = await prisma.failedEvent.deleteMany({
+    where: {
+      firstFailedAt: { lt: cutoff },
+    },
+  });
+  await refreshFailedEventBacklog();
+  return { deletedCount: result.count, dryRun: false, cutoff };
+}

@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "replay-failed-events": "tsx src/indexer/replay.ts",
+    "prune-failed-events": "tsx src/indexer/prune.ts",
     "print-config": "tsx src/print-config.ts",
     "depcheck": "depcheck",
     "postinstall": "prisma generate",
