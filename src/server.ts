@@ -74,6 +74,11 @@ export async function buildServer(config?: Partial<Config>): Promise<FastifyInst
     genReqId: (req) =>
       sanitizeRequestId(req.headers[REQUEST_ID_HEADER]) ?? randomUUID(),
     querystringParser: parseQueryString,
+    // Fastify's default Ajv strips properties a schema forbids with
+    // `additionalProperties: false`. Turn that off so an unknown or misspelt
+    // query parameter (`limt=5`) is rejected with a 400 instead of silently
+    // changing paging results.
+    ajv: { customOptions: { removeAdditional: false } },
   });
 
   // Enforce the query string length limit before routing.
