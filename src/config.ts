@@ -84,12 +84,26 @@ function positiveInteger(name: string, fallback: number, min: number): number {
   return parsed;
 }
 
-// Returns true when the URL resolves to a loopback address (localhost or
-// 127.x.x.x). These are the only hosts for which plain HTTP is acceptable.
+// Returns true when the URL resolves to a loopback address: localhost, an
+// IPv4 address in the 127.0.0.0/8 loopback range, or the IPv6 loopback ::1.
+// These are the only hosts for which plain HTTP is acceptable. The hostname
+// must be a *loopback address itself*; a public hostname that merely begins
+// with "127." (e.g. 127.evil.com) is not local, so it cannot be reached over
+// plain HTTP.
 export function isLocalUrl(url: string): boolean {
   try {
+    // WHATWG URLs keep the brackets in the hostname of IPv6 literals, so
+    // http://[::1]:8000 yields "[::1]".
     const { hostname } = new URL(url);
-    return hostname === "localhost" || hostname === "127.0.0.1" || hostname.startsWith("127.");
+    if (hostname === "localhost" || hostname === "[::1]" || hostname === "::1") {
+      return true;
+    }
+    const octets = hostname.split(".");
+    return (
+      octets.length === 4 &&
+      octets[0] === "127" &&
+      octets.slice(1).every((octet) => /^\d+$/.test(octet) && Number(octet) <= 255)
+    );
   } catch {
     return false;
   }
@@ -102,7 +116,7 @@ function validateRpcUrl(url: string): void {
   if (url.startsWith("http://") && !isLocalUrl(url)) {
     throw new Error(
       `SOROBAN_RPC_URL "${url}" uses plain HTTP on a non-local host. ` +
-        `Remote endpoints must use HTTPS. Use http:// only for localhost or 127.x.x.x.`,
+        `Remote endpoints must use HTTPS. Use http:// only for localhost, 127.x.x.x or [::1].`,
     );
   }
 }

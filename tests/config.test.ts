@@ -60,6 +60,11 @@ describe("isLocalUrl", () => {
   it("accepts other 127.x.x.x addresses", () => {
     expect(isLocalUrl("http://127.0.0.2:8000")).toBe(true);
     expect(isLocalUrl("http://127.1.2.3")).toBe(true);
+    expect(isLocalUrl("http://127.5.5.5")).toBe(true);
+  });
+
+  it("accepts the IPv6 loopback", () => {
+    expect(isLocalUrl("http://[::1]:8000")).toBe(true);
   });
 
   it("rejects a public hostname", () => {
@@ -77,6 +82,11 @@ describe("isLocalUrl", () => {
 
   it("is not confused by a hostname that merely contains '127'", () => {
     expect(isLocalUrl("http://host127.example.com")).toBe(false);
+  });
+
+  it("rejects a public hostname that merely begins with '127.'", () => {
+    expect(isLocalUrl("http://127.evil.com/rpc")).toBe(false);
+    expect(isLocalUrl("http://127.0.0.1.attacker.io/rpc")).toBe(false);
   });
 });
 
