@@ -204,7 +204,7 @@ The `/streams/summary` endpoint returns aggregate counts and exact total amounts
 }
 ```
 
-All amounts are exact integer base units encoded as strings (not JSON numbers) to preserve full 128-bit precision. The response is cached for 30 seconds (`Cache-Control: public, max-age=30`).
+All amounts are exact integer base units encoded as strings (not JSON numbers) to preserve full 128-bit precision. The response is held in-process for the window set by `STREAM_SUMMARY_CACHE_TTL_MS` (2 seconds by default, `0` to disable); `Cache-Control: public, max-age=N` reports the seconds left in that window, so `N` counts down as the cached entry ages — the full window immediately after a fresh computation, `0` at the end of it — and a client's copy never outlives the server's.
 
 **Data Types and Precision**
 - **Amounts** (`totalAmount`, `withdrawn`, `vested`, `withdrawable`, `locked`) are returned as strings holding integer base units.
@@ -694,7 +694,8 @@ current template — copy it and fill in the required values.
 | `PORT` | No | `3000` | HTTP server listen port. |
 | `HOST` | No | `0.0.0.0` | HTTP server bind address. |
 | `CORS_ORIGIN` | No | - | Allowed browser origin for the web client. |
-| `LOG_LEVEL` | No | `info` | Log verbosity (`trace`, `debug`, `info`, `warn`, `error`, `fatal`). |
+| `LOG_LEVEL` | No | `info` | Log verbosity (`trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`). |
+| `LOG_PRETTY` | No | - | Set to `true` for human-readable development logs; requires the `pino-pretty` dev dependency. Output stays JSON when unset. |
 | `BODY_LIMIT` | No | `1048576` | Largest accepted request body in bytes. |
 | `QUERY_STRING_LIMIT` | No | `2048` | Longest accepted URL query string in bytes. |
 | `TRUSTED_PROXIES` | No | - | Comma-separated list of trusted reverse-proxy addresses or IPv4 CIDR blocks. Forwarded headers are ignored when unset. |
@@ -833,7 +834,9 @@ parsing step.
 **Log levels**
 
 The valid values for `LOG_LEVEL` are `trace`, `debug`, `info`, `warn`,
-`error`, and `fatal`. The default is `info`, which logs normal operational
+`error`, `fatal`, and `silent`; the spelling is case-insensitive, and any
+other value is rejected at startup with an error that names the variable and
+lists these levels. The default is `info`, which logs normal operational
 events — server start, poll ticks, and stream writes — without the
 high-frequency trace output. Use `debug` or `trace` in development when
 tracing a specific behaviour:
@@ -849,6 +852,47 @@ LOG_LEVEL=trace npm start
 ```json
 {"level":30,"time":1731550800123,"pid":42,"hostname":"worker-1","module":"indexer","msg":"poll complete","lastLedger":56290013,"newEvents":3}
 ```
+
+**Startup configuration line**
+
+The resolved configuration comes from three places — the defaults in
+`src/config.ts`, a `.env` file, and the ambient environment — so the process
+logs what it actually started with as its first line, before anything that
+depends on those values can fail:
+
+```json
+{"level":30,"time":1731550800001,"pid":42,"hostname":"worker-1","msg":"effective configuration","config":{"port":3000,"host":"0.0.0.0","databaseUrl":"postgresql://***:***@db.internal:5432/tricklepay?schema=public","network":"testnet","networkPassphrase":"Test SDF Network ; September 2015","rpcUrl":"https://soroban-testnet.stellar.org","contractId":"CDMB6…","pollIntervalMs":5000,"startLedger":0,"maxBackoffMs":60000,"maxPagesPerTick":1000,"bodyLimit":1048576,"queryStringLimit":2048,"trustedProxies":[]}}
+```
+
+Every field of the `Config` type appears. `DATABASE_URL` is the only one
+carrying a secret: its user and password are replaced with `***`, leaving the
+host, port, database, and parameters, which are what identify the database the
+service is pointed at. A value that cannot be parsed as a URL is logged as
+`[unparseable, redacted]`, since there is no way to tell which part of it is
+the credential.
+
+**Readable logs in development**
+
+Newline-delimited JSON is what a log shipper wants, not what a developer wants
+to read. Set `LOG_PRETTY=true` to route the same records through
+[`pino-pretty`](https://github.com/pinojs/pino-pretty) instead:
+
+```bash
+LOG_PRETTY=true npm run dev
+```
+
+```text
+[12:40:00.123] INFO: poll complete
+    module: "indexer"
+    lastLedger: 56290013
+    newEvents: 3
+```
+
+`pino-pretty` is a dev dependency, so it is absent from a production install
+(`npm ci --omit=dev`, the Docker image). Nothing changes there unless the
+variable is set: when it is set and the package cannot be found, the service
+logs a warning naming `LOG_PRETTY` and keeps emitting JSON rather than failing
+to start.
 
 ### Metrics & alerting
 

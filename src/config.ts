@@ -221,3 +221,79 @@ export function loadConfig(): Config {
     rateLimitWindowMs,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Startup reporting (#474).
+//
+// When the service misbehaves the first question is what configuration it
+// actually started with, and the answer is spread across the defaults above, a
+// `.env` file, and the ambient environment. `describeConfig` renders the
+// resolved values for a single startup log line, with the database credentials
+// removed.
+// ---------------------------------------------------------------------------
+
+// Query parameters that carry a secret in a Postgres connection string.
+const CREDENTIAL_QUERY_PARAMS = ["password", "sslpassword"];
+
+// Replaces the credentials in a database URL with a placeholder, keeping the
+// parts that identify the server (scheme, host, port, database) so the line
+// still answers "which database is this pointed at?".
+export function redactDatabaseUrl(url: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    // Nothing can be said about where credentials sit in a value that is not a
+    // URL, so none of it is logged.
+    return "[unparseable, redacted]";
+  }
+
+  // A value with no authority component ("indexer:secret@host/db", which parses
+  // as an opaque "indexer:" URL) has no field to redact, and the secret in it
+  // would otherwise pass through untouched.
+  if (parsed.host === "") return "[unparseable, redacted]";
+
+  if (parsed.username !== "") parsed.username = "***";
+  if (parsed.password !== "") parsed.password = "***";
+  for (const param of CREDENTIAL_QUERY_PARAMS) {
+    if (parsed.searchParams.has(param)) parsed.searchParams.set(param, "***");
+  }
+
+  return parsed.toString();
+}
+
+// The configuration as it is logged: every field of `Config`, with the
+// database URL narrowed to its redacted rendering. Mapped over `keyof Config`
+// so a field added to `Config` fails to type check until it is given a place
+// here, which keeps the startup line from quietly falling behind.
+// Mapped over `Required<Config>` rather than `Config`, so a field `Config`
+// declares optional (the rate-limit settings) still has to be named below
+// instead of silently dropping out of the line; the value may still be
+// undefined, which pino omits from the output.
+export type LoggedConfig = {
+  [K in keyof Required<Config>]: K extends "databaseUrl" ? string : Config[K] | undefined;
+};
+
+export function describeConfig(config: Config): LoggedConfig {
+  return {
+    port: config.port,
+    host: config.host,
+    // The only field carrying a secret.
+    databaseUrl: redactDatabaseUrl(config.databaseUrl),
+    network: config.network,
+    networkPassphrase: config.networkPassphrase,
+    rpcUrl: config.rpcUrl,
+    contractId: config.contractId,
+    pollIntervalMs: config.pollIntervalMs,
+    startLedger: config.startLedger,
+    maxBackoffMs: config.maxBackoffMs,
+    maxPagesPerTick: config.maxPagesPerTick,
+    summaryCacheTtlMs: config.summaryCacheTtlMs,
+    bodyLimit: config.bodyLimit,
+    queryStringLimit: config.queryStringLimit,
+    trustedProxies: config.trustedProxies,
+    // Undefined when rate limiting is not configured; pino omits the field.
+    rateLimitMax: config.rateLimitMax,
+    rateLimitWindowMs: config.rateLimitWindowMs,
+  };
+}

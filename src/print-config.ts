@@ -7,18 +7,16 @@
 // one command instead of re-deriving it from source.
 //
 // databaseUrl is the one field that can carry credentials (postgresql://
-// user:pass@host/db); it is redacted with the same pattern error responses
-// already use, so this script is safe to run against a real environment and
-// to paste its output into a bug report or chat.
+// user:pass@host/db). The rendering comes from describeConfig, the same one the
+// service logs at startup (#474), so this script and that log line agree field
+// for field and the credentials are stripped from both. That makes the output
+// safe to run against a real environment and to paste into a bug report.
 // ---------------------------------------------------------------------------
 
-import { loadConfig } from "./config.js";
-import { redactErrorMessage } from "./error-redaction.js";
+import { describeConfig, loadConfig } from "./config.js";
 
 function main(): void {
-  const config = loadConfig();
-  const redacted = { ...config, databaseUrl: redactErrorMessage(config.databaseUrl) };
-  console.log(JSON.stringify(redacted, null, 2));
+  console.log(JSON.stringify(describeConfig(loadConfig()), null, 2));
 }
 
 main();
