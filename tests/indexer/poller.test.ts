@@ -77,6 +77,7 @@ const config: Config = {
   bodyLimit: 1048576,
   queryStringLimit: 2048,
   trustedProxies: [],
+  summaryCacheTtlMs: 2000,
 };
 
 const log = pino({ level: "silent" });
