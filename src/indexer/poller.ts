@@ -6,7 +6,7 @@ import { EVENT_PAGE_LIMIT, getContractEvents, type EventPage } from "../chain/rp
 
 import { nowSeconds } from "../lib/time.js";
 
-import type { Config } from "../config.js";
+import { validateStartLedger, type Config } from "../config.js";
 
 import { prisma } from "../db.js";
 
@@ -151,11 +151,10 @@ export class Poller {
     }
     if (this.config.startLedger > 0) {
       const latest = await this.server.getLatestLedger();
-      if (this.config.startLedger > latest.sequence) {
-        throw new Error(
-          `configured start ledger ${this.config.startLedger} is beyond the chain head ${latest.sequence}; the indexer would wait forever for events that cannot exist yet. Set START_LEDGER at or below the current chain head.`,
-        );
-      }
+      // Re-checked here because resolveStart runs again on a fresh state even
+      // when startup already validated the value; both paths share the single
+      // implementation in config.ts.
+      validateStartLedger(this.config.startLedger, latest.sequence);
       this.log.info({ ledger: this.config.startLedger }, "backfilling from configured ledger");
       return { startLedger: this.config.startLedger, lastLedger: this.config.startLedger - 1 };
     }
