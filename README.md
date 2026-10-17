@@ -694,7 +694,7 @@ current template — copy it and fill in the required values.
 | `PORT` | No | `3000` | HTTP server listen port. |
 | `HOST` | No | `0.0.0.0` | HTTP server bind address. |
 | `CORS_ORIGIN` | No | - | Allowed browser origin for the web client. |
-| `LOG_LEVEL` | No | `info` | Log verbosity (`trace`, `debug`, `info`, `warn`, `error`, `fatal`). |
+| `LOG_LEVEL` | No | `info` | Log verbosity (`trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`). |
 | `BODY_LIMIT` | No | `1048576` | Largest accepted request body in bytes. |
 | `QUERY_STRING_LIMIT` | No | `2048` | Longest accepted URL query string in bytes. |
 | `TRUSTED_PROXIES` | No | - | Comma-separated list of trusted reverse-proxy addresses or IPv4 CIDR blocks. Forwarded headers are ignored when unset. |
@@ -833,7 +833,9 @@ parsing step.
 **Log levels**
 
 The valid values for `LOG_LEVEL` are `trace`, `debug`, `info`, `warn`,
-`error`, and `fatal`. The default is `info`, which logs normal operational
+`error`, `fatal`, and `silent`; the spelling is case-insensitive, and any
+other value is rejected at startup with an error that names the variable and
+lists these levels. The default is `info`, which logs normal operational
 events — server start, poll ticks, and stream writes — without the
 high-frequency trace output. Use `debug` or `trace` in development when
 tracing a specific behaviour:
