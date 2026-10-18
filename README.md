@@ -698,6 +698,8 @@ current template — copy it and fill in the required values.
 | `LOG_PRETTY` | No | - | Set to `true` for human-readable development logs; requires the `pino-pretty` dev dependency. Output stays JSON when unset. |
 | `BODY_LIMIT` | No | `1048576` | Largest accepted request body in bytes. |
 | `QUERY_STRING_LIMIT` | No | `2048` | Longest accepted URL query string in bytes. |
+| `RATE_LIMIT_MAX` | No | `100` | Maximum requests per client IP in each rate-limit window. Must be greater than zero. |
+| `RATE_LIMIT_WINDOW_MS` | No | `60000` | Length of the fixed rate-limit window in milliseconds. Must be greater than zero. |
 | `TRUSTED_PROXIES` | No | - | Comma-separated list of trusted reverse-proxy addresses or IPv4 CIDR blocks. Forwarded headers are ignored when unset. |
 | `INDEXER_POLL_INTERVAL_MS` | No | `5000` | Milliseconds between polls of the chain. |
 | `INDEXER_BACKOFF_MAX_MS` | No | `60000` | Maximum poll retry delay (ms) on RPC failures. |
