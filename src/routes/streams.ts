@@ -1,4 +1,4 @@
-// Registers the GET /streams, GET /streams/summary, GET /streams/:id/events, and GET /streams/:id endpoints.
+// Registers the GET /streams, GET /streams/summary, GET /tokens, GET /streams/:id/events, and GET /streams/:id endpoints.
 // These routes read stream records, historical events, and aggregations from the database.
 
 import { Prisma, type Stream } from "@prisma/client";
@@ -15,11 +15,17 @@ import {
   aggregateStreams,
   countStreams,
   decodeCursor,
+  getAccountStreams,
   getStream,
   listStreams,
+  listTokens,
 } from "../repositories/streams.js";
 
 import {
+  ACCOUNT_STREAM_SUMMARY_SCHEMA_ID,
+  ACCOUNT_SUMMARY_RESPONSE_SCHEMA_ID,
+  accountStreamSummarySchema,
+  accountSummaryResponseSchema,
   apiErrorSchema,
   ERROR_SCHEMA_ID,
   streamEventHistoryResponseSchema,
@@ -34,10 +40,15 @@ import {
   STREAM_SUMMARY_RESPONSE_SCHEMA_ID,
   streamViewSchema,
   STREAM_VIEW_SCHEMA_ID,
+  TOKEN_LIST_RESPONSE_SCHEMA_ID,
+  TOKEN_SUMMARY_SCHEMA_ID,
+  tokenListResponseSchema,
+  tokenSummarySchema,
 } from "../schema.js";
+import { listIndexedEvents, type IndexedEventKind } from "../repositories/indexed-events.js";
 import { vestedAmount } from "../lib/vesting.js";
-import { listIndexedEvents } from "../repositories/indexed-events.js";
 import { nowSeconds } from "../lib/time.js";
+import { vestedAmount, withdrawableAmount } from "../lib/vesting.js";
 import { DEFAULT_STREAM_SUMMARY_CACHE_TTL_MS } from "../config.js";
 
 // Above this offset a scan gets expensive enough that callers should page
@@ -166,6 +177,40 @@ const SUMMARY_STATUSES = ["pending", "streaming", "completed", "cancelled"] as c
 type SummaryEntry = { count: number; totalAmount: string; withdrawn: string };
 type SummaryPayload = Record<StreamStatus, SummaryEntry>;
 
+function summarizeAccountStreams(streams: Stream[], now: bigint) {
+  let totalAmount = 0n;
+  let withdrawn = 0n;
+  let vested = 0n;
+  let withdrawable = 0n;
+
+  for (const stream of streams) {
+    const streamTotal = BigInt(stream.totalAmount.toString());
+    const streamWithdrawn = BigInt(stream.withdrawn.toString());
+    const streamVested = vestedAmount(
+      streamTotal,
+      stream.startTime,
+      stream.endTime,
+      stream.cliffTime,
+      now,
+    );
+    const streamWithdrawable = withdrawableAmount(streamVested, streamWithdrawn);
+
+    totalAmount += streamTotal;
+    withdrawn += streamWithdrawn;
+    vested += streamVested;
+    withdrawable += streamWithdrawable;
+  }
+
+  return {
+    count: streams.length,
+    totalAmount: totalAmount.toString(),
+    total: totalAmount.toString(),
+    withdrawn: withdrawn.toString(),
+    vested: vested.toString(),
+    withdrawable: withdrawable.toString(),
+  };
+}
+
 export type StreamRoutesOptions = {
   summaryCacheTtlMs?: number;
 };
@@ -205,6 +250,17 @@ export async function streamRoutes(
   if (!app.getSchema(STREAM_EVENT_HISTORY_RESPONSE_SCHEMA_ID)) {
     app.addSchema(streamEventHistoryResponseSchema);
   }
+  if (!app.getSchema(TOKEN_SUMMARY_SCHEMA_ID)) {
+    app.addSchema(tokenSummarySchema);
+  }
+  if (!app.getSchema(TOKEN_LIST_RESPONSE_SCHEMA_ID)) {
+    app.addSchema(tokenListResponseSchema);
+  }
+  if (!app.getSchema(ACCOUNT_STREAM_SUMMARY_SCHEMA_ID)) {
+    app.addSchema(accountStreamSummarySchema);
+  }
+  if (!app.getSchema(ACCOUNT_SUMMARY_RESPONSE_SCHEMA_ID)) {
+    app.addSchema(accountSummaryResponseSchema);
   if (!app.getSchema(STREAM_SCHEDULE_RESPONSE_SCHEMA_ID)) {
     app.addSchema(streamScheduleResponseSchema);
   }
@@ -410,6 +466,27 @@ export async function streamRoutes(
   );
 
   app.get(
+    "/tokens",
+    {
+      schema: {
+        summary: "List distinct tokens",
+        description:
+          "Returns each distinct token with its stream count and total escrowed amount. " +
+          "Totals are aggregated in the database over decimal columns, so they never lose precision.",
+        tags: ["streams"],
+        response: {
+          200: { $ref: TOKEN_LIST_RESPONSE_SCHEMA_ID },
+        },
+      },
+    },
+    async (_request, reply) => {
+      const tokens = await listTokens();
+      reply.header("Cache-Control", "public, max-age=30");
+      return tokens;
+    },
+  );
+
+  app.get(
     "/streams/:id/events",
     {
       schema: {
@@ -429,6 +506,17 @@ export async function streamRoutes(
             },
           },
         },
+        querystring: {
+          type: "object",
+          properties: {
+            kind: {
+              type: "string",
+              enum: ["created", "withdrawn", "cancelled"],
+              description: "Filter events by kind (created, withdrawn, or cancelled).",
+            },
+          },
+          additionalProperties: false,
+        },
         response: {
           200: { $ref: STREAM_EVENT_HISTORY_RESPONSE_SCHEMA_ID },
           400: { $ref: ERROR_SCHEMA_ID },
@@ -438,9 +526,15 @@ export async function streamRoutes(
     },
     async (request, reply) => {
       const { id } = request.params as { id: string };
+      const { kind } = (request.query as { kind?: string }) ?? {};
       const streamId = parseStreamId(id);
       if (streamId === null) {
         return sendError(reply, request, 400, "VALIDATION_ERROR", "invalid stream id");
+      }
+
+      const validKinds: readonly string[] = ["created", "withdrawn", "cancelled"];
+      if (kind !== undefined && !validKinds.includes(kind)) {
+        return sendError(reply, request, 400, "VALIDATION_ERROR", "invalid event kind");
       }
 
       const stream = await getStream({ streamId });
@@ -448,7 +542,7 @@ export async function streamRoutes(
         return sendError(reply, request, 404, "NOT_FOUND", "stream not found");
       }
 
-      const events = await listIndexedEvents(streamId);
+      const events = await listIndexedEvents(streamId, kind as IndexedEventKind | undefined);
       reply.header("Cache-Control", "public, max-age=30");
       return events.map((event) => ({
         eventId: event.eventId,
@@ -474,6 +568,7 @@ export async function streamRoutes(
   app.get(
     "/streams/:id",
     {
+      exposeHeadRoute: true,
       schema: {
         summary: "Get stream by id",
         description: "Returns a single token stream by its numeric id.",
@@ -624,6 +719,50 @@ export async function streamRoutes(
 
       const points = computeSchedulePoints(stream, requestedPoints);
       return { points };
+    },
+  );
+
+  app.get(
+    "/accounts/:address/summary",
+    {
+      schema: {
+        summary: "Get account stream summary",
+        description:
+          "Returns incoming and outgoing stream counts and exact amount totals for a single Stellar address. " +
+          "Derived amounts (vested, withdrawable) are calculated against the current time using the same rules as the stream view.",
+        tags: ["streams"],
+        params: {
+          type: "object",
+          required: ["address"],
+          properties: {
+            address: {
+              type: "string",
+              description: "Stellar account public key or contract address.",
+              examples: ["GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"],
+            },
+          },
+        },
+        response: {
+          200: { $ref: ACCOUNT_SUMMARY_RESPONSE_SCHEMA_ID },
+          400: { $ref: ERROR_SCHEMA_ID },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { address } = request.params as { address: string };
+      const normalized = normalizeAddress(address);
+      if (!normalized) {
+        return sendError(reply, request, 400, "VALIDATION_ERROR", "invalid address");
+      }
+
+      const { incoming, outgoing } = await getAccountStreams(normalized);
+      const now = nowSeconds();
+
+      reply.header("Cache-Control", "public, max-age=30");
+      return {
+        incoming: summarizeAccountStreams(incoming, now),
+        outgoing: summarizeAccountStreams(outgoing, now),
+      };
     },
   );
 }

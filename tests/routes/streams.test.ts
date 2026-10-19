@@ -87,6 +87,18 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+async function headStreamById(id: string, headers: Record<string, string> = {}) {
+  const app = Fastify();
+  await app.register(streamRoutes);
+  const response = await app.inject({
+    method: "HEAD",
+    url: `/streams/${id}`,
+    headers,
+  });
+  await app.close();
+  return response;
+}
+
 describe("GET /streams/:id", () => {
   it("returns cache-control header", async () => {
     streamsRepo.getStream.mockResolvedValue(makeStream());
@@ -291,6 +303,39 @@ describe("GET /streams/:id/schedule (#493)", () => {
   it("returns 400 for invalid stream id on schedule route", async () => {
     const response = await getStreamSchedule("not-an-id");
     expect(response.statusCode).toBe(400);
+  });
+});
+
+describe("HEAD /streams/:id", { timeout: 20000 }, () => {
+  it("returns the same status and headers as GET without a body", async () => {
+    streamsRepo.getStream.mockResolvedValue(makeStream({ updatedLedger: 200 }));
+    const getResponse = await getStreamById("42");
+    const headResponse = await headStreamById("42");
+
+    expect(headResponse.statusCode).toBe(getResponse.statusCode);
+    expect(headResponse.statusCode).toBe(200);
+    expect(headResponse.body).toBe("");
+    expect(headResponse.headers["etag"]).toBe(getResponse.headers["etag"]);
+    expect(headResponse.headers["cache-control"]).toBe(getResponse.headers["cache-control"]);
+    expect(headResponse.headers["content-type"]).toBe(getResponse.headers["content-type"]);
+    expect(headResponse.headers["content-length"]).toBe(getResponse.headers["content-length"]);
+  });
+
+  it("returns 404 without a body for an unknown id", async () => {
+    streamsRepo.getStream.mockResolvedValue(null);
+    const response = await headStreamById("999");
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toBe("");
+    expect(response.headers["cache-control"]).toBeUndefined();
+  });
+
+  it("returns 304 without a body when If-None-Match matches", async () => {
+    streamsRepo.getStream.mockResolvedValue(makeStream({ updatedLedger: 200 }));
+    const response = await headStreamById("42", { "if-none-match": '"200"' });
+
+    expect(response.statusCode).toBe(304);
+    expect(response.body).toBe("");
   });
 });
 

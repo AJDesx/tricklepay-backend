@@ -1,13 +1,13 @@
-#345 Document the operational runbook for a failing database
+#486 Add HEAD support for the stream detail route
 Repo Avatar
 TricklePay/tricklepay-backend
 Summary
-A database outage affects the read API and the indexer differently, and an operator needs to know which symptoms to expect and what recovers automatically.
+Clients and caches that only want to know whether a stream exists or has changed cannot use HEAD /streams/:id; the route answers only GET. Supporting HEAD with the same status codes and headers (including the ETag) avoids transferring the body.
 
 Acceptance criteria
- A runbook describes the symptoms of a database outage.
- It states what recovers automatically and what needs intervention.
- It names the relevant metrics.
+ HEAD /streams/:id returns the same status and headers as GET without a body.
+ An unknown id returns 404.
+ A test covers both.
 Getting started
 Fork this repository, clone your fork, and add this repo as upstream:
 
@@ -16,10 +16,8 @@ cd tricklepay-backend
 git remote add upstream https://github.com/TricklePay/tricklepay-backend.git
 Create a branch for this issue:
 
-git checkout -b docs/issue-345
+git checkout -b feat/issue-485
 Suggested commit message:
 
-docs: add a runbook for a database outage
+feat: add an account summary endpoint
 Run npm run typecheck, npm test, and npm run build before opening a pull request and linking this issue.
-
-
