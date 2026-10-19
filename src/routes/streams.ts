@@ -488,6 +488,7 @@ export async function streamRoutes(
   app.get(
     "/streams/:id",
     {
+      exposeHeadRoute: true,
       schema: {
         summary: "Get stream by id",
         description: "Returns a single token stream by its numeric id.",

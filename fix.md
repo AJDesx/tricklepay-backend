@@ -1,13 +1,13 @@
-#485 Add an account summary endpoint for one address
+#486 Add HEAD support for the stream detail route
 Repo Avatar
 TricklePay/tricklepay-backend
 Summary
-A wallet screen wants, for one address, how many streams it is sending and receiving and how much is withdrawable now, without downloading the lists. A GET /accounts/:address/summary endpoint could return those totals using the same derivations as the stream view.
+Clients and caches that only want to know whether a stream exists or has changed cannot use HEAD /streams/:id; the route answers only GET. Supporting HEAD with the same status codes and headers (including the ETag) avoids transferring the body.
 
 Acceptance criteria
- The endpoint returns incoming and outgoing counts and totals for an address.
- The address is validated and normalised like the list filters.
- Totals are exact strings and the endpoint is tested.
+ HEAD /streams/:id returns the same status and headers as GET without a body.
+ An unknown id returns 404.
+ A test covers both.
 Getting started
 Fork this repository, clone your fork, and add this repo as upstream:
 
@@ -16,8 +16,18 @@ cd tricklepay-backend
 git remote add upstream https://github.com/TricklePay/tricklepay-backend.git
 Create a branch for this issue:
 
+<<<<<<< HEAD
 git checkout -b feat/issue-485
 Suggested commit message:
 
 feat: add an account summary endpoint
 Run npm run typecheck, npm test, and npm run build before opening a pull request and linking this issue.
+=======
+git checkout -b feat/issue-486
+Suggested commit message:
+
+feat: support HEAD on the stream detail route
+Run npm run typecheck, npm test, and npm run build before opening a pull request and linking this issue.
+
+
+>>>>>>> ab522ad (feat: support HEAD on the stream detail route)
