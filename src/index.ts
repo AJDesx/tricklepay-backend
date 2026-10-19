@@ -1,6 +1,6 @@
 import { createRpcServer, verifyRpcEndpoint } from "./chain/rpc.js";
 
-import { loadConfig, validateStartLedger } from "./config.js";
+import { describeConfig, loadConfig, validateStartLedger } from "./config.js";
 
 import { disconnect } from "./db.js";
 
@@ -22,6 +22,10 @@ import { createShutdown } from "./shutdown.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
+  // The resolved configuration, before anything that depends on it can fail,
+  // so a startup failure is diagnosed against the values that caused it (#474).
+  logger.info({ config: describeConfig(config) }, "effective configuration");
+
   const rpcServer = createRpcServer(config);
   await verifyRpcEndpoint(rpcServer, config.rpcUrl);
 

@@ -121,6 +121,28 @@ export class Gauge {
     }
   }
 
+  inc(labels: Record<string, string>, amount?: number): void;
+  inc(amount?: number): void;
+  inc(labelsOrAmount: Record<string, string> | number = 1, amount = 1): void {
+    if (typeof labelsOrAmount === "number") {
+      this.values.set("", (this.values.get("") ?? 0) + labelsOrAmount);
+    } else {
+      const key = labelsKey(labelsOrAmount);
+      this.values.set(key, (this.values.get(key) ?? 0) + amount);
+    }
+  }
+
+  dec(labels: Record<string, string>, amount?: number): void;
+  dec(amount?: number): void;
+  dec(labelsOrAmount: Record<string, string> | number = 1, amount = 1): void {
+    if (typeof labelsOrAmount === "number") {
+      this.values.set("", (this.values.get("") ?? 0) - labelsOrAmount);
+    } else {
+      const key = labelsKey(labelsOrAmount);
+      this.values.set(key, (this.values.get(key) ?? 0) - amount);
+    }
+  }
+
   private serialize(): string {
     const lines: string[] = [
       `# HELP ${this.name} ${this.help}`,

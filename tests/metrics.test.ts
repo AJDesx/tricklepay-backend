@@ -106,7 +106,7 @@ describe("indexed streams metric (#393)", () => {
 
     const output = renderMetrics();
     expect(output).toContain("# HELP indexed_streams Number of indexed streams");
-    expect(output).toContain("# TYPQ indexed_streams gauge");
+    expect(output).toContain("# TYPE indexed_streams gauge");
     expect(output).toContain("indexed_streams 7");
   });
 

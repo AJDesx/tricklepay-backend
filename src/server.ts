@@ -19,6 +19,8 @@ import {
   type Config,
 } from "./config.js";
 
+import { errorCodeForStatus } from "./error-redaction.js";
+
 import { registerErrorHandlers } from "./error-handlers.js";
 
 import { registerHealthRoutes } from "./health-routes.js";
@@ -92,6 +94,46 @@ export async function buildServer(config?: Partial<Config>): Promise<FastifyInst
       });
       return reply;
     }
+  });
+
+  const clientWindows = new Map<string, { requests: number; resetAt: number }>();
+  const maxTrackedClients = 10_000;
+
+  app.addHook("onRequest", async (request, reply) => {
+    const now = Date.now();
+    let window = clientWindows.get(request.ip);
+
+    if (!window || window.resetAt <= now) {
+      if (window) {
+        clientWindows.delete(request.ip);
+      } else if (clientWindows.size >= maxTrackedClients) {
+        for (const [ip, trackedWindow] of clientWindows) {
+          if (trackedWindow.resetAt <= now) clientWindows.delete(ip);
+        }
+        if (clientWindows.size >= maxTrackedClients) {
+          const oldestIp = clientWindows.keys().next().value;
+          if (oldestIp !== undefined) clientWindows.delete(oldestIp);
+        }
+      }
+      window = { requests: 0, resetAt: now + rateLimitWindowMs };
+    }
+
+    clientWindows.delete(request.ip);
+    clientWindows.set(request.ip, window);
+
+    if (window.requests >= rateLimitMax) {
+      const retryAfter = Math.max(1, Math.ceil((window.resetAt - now) / 1000));
+      return reply
+        .header("Retry-After", String(retryAfter))
+        .status(429)
+        .send({
+          code: errorCodeForStatus(429),
+          error: "rate limit exceeded",
+          requestId: request.id,
+        });
+    }
+
+    window.requests += 1;
   });
 
   // Echo the request id header on every response.
