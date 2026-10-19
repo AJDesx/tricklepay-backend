@@ -366,3 +366,15 @@ export async function listTokens(): Promise<TokenSummary[]> {
   }));
 }
 
+// Returns incoming (recipient = address) and outgoing (sender = address) streams
+// for a single Stellar account or contract address.
+export async function getAccountStreams(
+  address: string,
+): Promise<{ incoming: Stream[]; outgoing: Stream[] }> {
+  const [incoming, outgoing] = await Promise.all([
+    withQueryTimeout(prisma.stream.findMany({ where: { recipient: address } })),
+    withQueryTimeout(prisma.stream.findMany({ where: { sender: address } })),
+  ]);
+  return { incoming, outgoing };
+}
+

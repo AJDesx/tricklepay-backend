@@ -15,12 +15,17 @@ import {
   aggregateStreams,
   countStreams,
   decodeCursor,
+  getAccountStreams,
   getStream,
   listStreams,
   listTokens,
 } from "../repositories/streams.js";
 
 import {
+  ACCOUNT_STREAM_SUMMARY_SCHEMA_ID,
+  ACCOUNT_SUMMARY_RESPONSE_SCHEMA_ID,
+  accountStreamSummarySchema,
+  accountSummaryResponseSchema,
   apiErrorSchema,
   ERROR_SCHEMA_ID,
   streamEventHistoryResponseSchema,
@@ -40,6 +45,7 @@ import {
 } from "../schema.js";
 import { listIndexedEvents, type IndexedEventKind } from "../repositories/indexed-events.js";
 import { nowSeconds } from "../lib/time.js";
+import { vestedAmount, withdrawableAmount } from "../lib/vesting.js";
 import { DEFAULT_STREAM_SUMMARY_CACHE_TTL_MS } from "../config.js";
 
 // Above this offset a scan gets expensive enough that callers should page
@@ -93,6 +99,40 @@ const SUMMARY_STATUSES = ["pending", "streaming", "completed", "cancelled"] as c
 type SummaryEntry = { count: number; totalAmount: string; withdrawn: string };
 type SummaryPayload = Record<StreamStatus, SummaryEntry>;
 
+function summarizeAccountStreams(streams: Stream[], now: bigint) {
+  let totalAmount = 0n;
+  let withdrawn = 0n;
+  let vested = 0n;
+  let withdrawable = 0n;
+
+  for (const stream of streams) {
+    const streamTotal = BigInt(stream.totalAmount.toString());
+    const streamWithdrawn = BigInt(stream.withdrawn.toString());
+    const streamVested = vestedAmount(
+      streamTotal,
+      stream.startTime,
+      stream.endTime,
+      stream.cliffTime,
+      now,
+    );
+    const streamWithdrawable = withdrawableAmount(streamVested, streamWithdrawn);
+
+    totalAmount += streamTotal;
+    withdrawn += streamWithdrawn;
+    vested += streamVested;
+    withdrawable += streamWithdrawable;
+  }
+
+  return {
+    count: streams.length,
+    totalAmount: totalAmount.toString(),
+    total: totalAmount.toString(),
+    withdrawn: withdrawn.toString(),
+    vested: vested.toString(),
+    withdrawable: withdrawable.toString(),
+  };
+}
+
 export type StreamRoutesOptions = {
   summaryCacheTtlMs?: number;
 };
@@ -137,6 +177,12 @@ export async function streamRoutes(
   }
   if (!app.getSchema(TOKEN_LIST_RESPONSE_SCHEMA_ID)) {
     app.addSchema(tokenListResponseSchema);
+  }
+  if (!app.getSchema(ACCOUNT_STREAM_SUMMARY_SCHEMA_ID)) {
+    app.addSchema(accountStreamSummarySchema);
+  }
+  if (!app.getSchema(ACCOUNT_SUMMARY_RESPONSE_SCHEMA_ID)) {
+    app.addSchema(accountSummaryResponseSchema);
   }
   if (!app.getSchema(ERROR_SCHEMA_ID)) app.addSchema(apiErrorSchema);
 
@@ -487,6 +533,50 @@ export async function streamRoutes(
       }
 
       return mapStreamResponse(stream);
+    },
+  );
+
+  app.get(
+    "/accounts/:address/summary",
+    {
+      schema: {
+        summary: "Get account stream summary",
+        description:
+          "Returns incoming and outgoing stream counts and exact amount totals for a single Stellar address. " +
+          "Derived amounts (vested, withdrawable) are calculated against the current time using the same rules as the stream view.",
+        tags: ["streams"],
+        params: {
+          type: "object",
+          required: ["address"],
+          properties: {
+            address: {
+              type: "string",
+              description: "Stellar account public key or contract address.",
+              examples: ["GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"],
+            },
+          },
+        },
+        response: {
+          200: { $ref: ACCOUNT_SUMMARY_RESPONSE_SCHEMA_ID },
+          400: { $ref: ERROR_SCHEMA_ID },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { address } = request.params as { address: string };
+      const normalized = normalizeAddress(address);
+      if (!normalized) {
+        return sendError(reply, request, 400, "VALIDATION_ERROR", "invalid address");
+      }
+
+      const { incoming, outgoing } = await getAccountStreams(normalized);
+      const now = nowSeconds();
+
+      reply.header("Cache-Control", "public, max-age=30");
+      return {
+        incoming: summarizeAccountStreams(incoming, now),
+        outgoing: summarizeAccountStreams(outgoing, now),
+      };
     },
   );
 }

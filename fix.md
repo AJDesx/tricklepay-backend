@@ -1,13 +1,13 @@
-#484 Add a tokens endpoint listing distinct tokens with stream counts
+#485 Add an account summary endpoint for one address
 Repo Avatar
 TricklePay/tricklepay-backend
 Summary
-A client building a token picker or per-token totals has to page through every stream to discover which tokens exist. A GET /tokens endpoint returning each distinct token with its stream count and total escrowed amount answers it in one query.
+A wallet screen wants, for one address, how many streams it is sending and receiving and how much is withdrawable now, without downloading the lists. A GET /accounts/:address/summary endpoint could return those totals using the same derivations as the stream view.
 
 Acceptance criteria
- The endpoint returns each distinct token with a count and total.
- Amounts are strings and exact.
- It appears in the OpenAPI document with a test.
+ The endpoint returns incoming and outgoing counts and totals for an address.
+ The address is validated and normalised like the list filters.
+ Totals are exact strings and the endpoint is tested.
 Getting started
 Fork this repository, clone your fork, and add this repo as upstream:
 
@@ -16,8 +16,8 @@ cd tricklepay-backend
 git remote add upstream https://github.com/TricklePay/tricklepay-backend.git
 Create a branch for this issue:
 
-git checkout -b feat/issue-484
+git checkout -b feat/issue-485
 Suggested commit message:
 
-feat: add a tokens endpoint
+feat: add an account summary endpoint
 Run npm run typecheck, npm test, and npm run build before opening a pull request and linking this issue.

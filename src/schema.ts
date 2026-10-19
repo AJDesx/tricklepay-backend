@@ -24,6 +24,8 @@ export const ERROR_SCHEMA_ID = "ApiError";
 export const API_INDEX_SCHEMA_ID = "ApiIndex";
 export const TOKEN_SUMMARY_SCHEMA_ID = "TokenSummary";
 export const TOKEN_LIST_RESPONSE_SCHEMA_ID = "TokenListResponse";
+export const ACCOUNT_STREAM_SUMMARY_SCHEMA_ID = "AccountStreamSummary";
+export const ACCOUNT_SUMMARY_RESPONSE_SCHEMA_ID = "AccountSummaryResponse";
 
 // ---------------------------------------------------------------------------
 // StreamView — a single token stream as the API renders it.
@@ -355,6 +357,68 @@ export const tokenListResponseSchema = {
   description: "List of distinct tokens with their stream counts and total escrowed amounts.",
   items: { $ref: TOKEN_SUMMARY_SCHEMA_ID },
 } as const;
+
+// ---------------------------------------------------------------------------
+// AccountStreamSummary and AccountSummaryResponse — incoming and outgoing totals.
+// ---------------------------------------------------------------------------
+export const accountStreamSummarySchema = {
+  $id: ACCOUNT_STREAM_SUMMARY_SCHEMA_ID,
+  type: "object",
+  description: "Summary of stream counts and token totals for an address.",
+  required: [
+    "count",
+    "totalAmount",
+    "total",
+    "withdrawn",
+    "vested",
+    "withdrawable",
+  ],
+  properties: {
+    count: {
+      type: "integer",
+      description: "Number of streams.",
+      minimum: 0,
+      examples: [3],
+    },
+    totalAmount: {
+      type: "string",
+      description: "Total allocated tokens (uint128, decimal string).",
+      examples: ["100000000000000"],
+    },
+    total: {
+      type: "string",
+      description: "Total allocated tokens (alias for totalAmount, uint128, decimal string).",
+      examples: ["100000000000000"],
+    },
+    withdrawn: {
+      type: "string",
+      description: "Total tokens already withdrawn (uint128, decimal string).",
+      examples: ["25000000000000"],
+    },
+    vested: {
+      type: "string",
+      description: "Total tokens vested as of now (uint128, decimal string).",
+      examples: ["50000000000000"],
+    },
+    withdrawable: {
+      type: "string",
+      description: "Total tokens currently withdrawable (uint128, decimal string).",
+      examples: ["25000000000000"],
+    },
+  },
+} as const;
+
+export const accountSummaryResponseSchema = {
+  $id: ACCOUNT_SUMMARY_RESPONSE_SCHEMA_ID,
+  type: "object",
+  description: "Account summary containing incoming and outgoing stream totals.",
+  required: ["incoming", "outgoing"],
+  properties: {
+    incoming: { $ref: ACCOUNT_STREAM_SUMMARY_SCHEMA_ID },
+    outgoing: { $ref: ACCOUNT_STREAM_SUMMARY_SCHEMA_ID },
+  },
+} as const;
+
 
 
 // ---------------------------------------------------------------------------
