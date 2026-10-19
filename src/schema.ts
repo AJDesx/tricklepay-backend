@@ -22,6 +22,8 @@ export const STREAM_EVENT_HISTORY_RESPONSE_SCHEMA_ID = "StreamEventHistoryRespon
 export const INDEXER_STATUS_SCHEMA_ID = "IndexerStatus";
 export const ERROR_SCHEMA_ID = "ApiError";
 export const API_INDEX_SCHEMA_ID = "ApiIndex";
+export const TOKEN_SUMMARY_SCHEMA_ID = "TokenSummary";
+export const TOKEN_LIST_RESPONSE_SCHEMA_ID = "TokenListResponse";
 
 // ---------------------------------------------------------------------------
 // StreamView — a single token stream as the API renders it.
@@ -317,6 +319,43 @@ export const streamEventHistoryResponseSchema = {
   description: "Indexed stream event history in ascending TOID order.",
   items: { $ref: STREAM_EVENT_SCHEMA_ID },
 } as const;
+
+// ---------------------------------------------------------------------------
+// TokenSummary and TokenListResponse — distinct tokens with counts and totals.
+// ---------------------------------------------------------------------------
+export const tokenSummarySchema = {
+  $id: TOKEN_SUMMARY_SCHEMA_ID,
+  type: "object",
+  description: "A distinct token with its stream count and total escrowed amount.",
+  required: ["token", "count", "total"],
+  properties: {
+    token: {
+      type: "string",
+      description: "Stellar token contract address.",
+      examples: ["CBFS2HT4TIHTMWA5ZND6FEC27BRRA4V6JWOD7JIIDZVSPVAM7EJ2LZS7"],
+    },
+    count: {
+      type: "integer",
+      description: "Number of streams using this token.",
+      minimum: 0,
+      examples: [12],
+    },
+    total: {
+      type: "string",
+      description:
+        "Total amount escrowed across streams for this token (uint128, decimal string).",
+      examples: ["1000000000000000"],
+    },
+  },
+} as const;
+
+export const tokenListResponseSchema = {
+  $id: TOKEN_LIST_RESPONSE_SCHEMA_ID,
+  type: "array",
+  description: "List of distinct tokens with their stream counts and total escrowed amounts.",
+  items: { $ref: TOKEN_SUMMARY_SCHEMA_ID },
+} as const;
+
 
 // ---------------------------------------------------------------------------
 // IndexerStatus — indexer progress report.

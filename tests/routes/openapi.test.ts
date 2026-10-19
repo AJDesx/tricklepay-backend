@@ -67,6 +67,13 @@ describe("GET /docs/json (OpenAPI spec)", () => {
     expect((paths["/streams/summary"] as Record<string, unknown>)).toHaveProperty("get");
   });
 
+  it("documents the GET /tokens path", async () => {
+    const spec = await getSpec();
+    const paths = spec.paths as Record<string, unknown>;
+    expect(paths).toHaveProperty("/tokens");
+    expect((paths["/tokens"] as Record<string, unknown>)).toHaveProperty("get");
+  });
+
   it("documents the GET /status path", async () => {
     const spec = await getSpec();
     const paths = spec.paths as Record<string, unknown>;

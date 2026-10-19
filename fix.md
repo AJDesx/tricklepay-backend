@@ -1,13 +1,13 @@
-#483 Add a kind filter to the stream events endpoint
+#484 Add a tokens endpoint listing distinct tokens with stream counts
 Repo Avatar
 TricklePay/tricklepay-backend
 Summary
-GET /streams/:id/events returns every indexed event for a stream. A client that only wants withdrawals, to total payouts for example, must filter locally. A kind parameter accepting created, withdrawn or cancelled is a small database filter.
+A client building a token picker or per-token totals has to page through every stream to discover which tokens exist. A GET /tokens endpoint returning each distinct token with its stream count and total escrowed amount answers it in one query.
 
 Acceptance criteria
- A kind parameter filters the events.
- An unknown kind returns a 400.
- The OpenAPI document and tests cover it.
+ The endpoint returns each distinct token with a count and total.
+ Amounts are strings and exact.
+ It appears in the OpenAPI document with a test.
 Getting started
 Fork this repository, clone your fork, and add this repo as upstream:
 
@@ -16,8 +16,8 @@ cd tricklepay-backend
 git remote add upstream https://github.com/TricklePay/tricklepay-backend.git
 Create a branch for this issue:
 
-git checkout -b feat/issue-483
+git checkout -b feat/issue-484
 Suggested commit message:
 
-feat: add a kind filter to the events endpoint
+feat: add a tokens endpoint
 Run npm run typecheck, npm test, and npm run build before opening a pull request and linking this issue.

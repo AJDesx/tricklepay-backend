@@ -339,3 +339,30 @@ export async function aggregateStreams(where: Prisma.StreamWhereInput): Promise<
     withdrawn: result._sum.withdrawn ?? new Prisma.Decimal(0),
   };
 }
+
+export interface TokenSummary {
+  token: string;
+  count: number;
+  total: string;
+}
+
+// Groups streams by token and returns the distinct tokens with stream count
+// and total escrowed amount. The sums run in Postgres over decimal columns so
+// amounts stay exact.
+export async function listTokens(): Promise<TokenSummary[]> {
+  const groups = await withQueryTimeout(
+    prisma.stream.groupBy({
+      by: ["token"],
+      _count: { streamId: true },
+      _sum: { totalAmount: true },
+      orderBy: { token: "asc" },
+    }),
+  );
+
+  return groups.map((group) => ({
+    token: group.token,
+    count: group._count.streamId,
+    total: group._sum.totalAmount ? group._sum.totalAmount.toString() : "0",
+  }));
+}
+

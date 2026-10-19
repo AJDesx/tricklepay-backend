@@ -1,4 +1,4 @@
-// Registers the GET /streams, GET /streams/summary, GET /streams/:id/events, and GET /streams/:id endpoints.
+// Registers the GET /streams, GET /streams/summary, GET /tokens, GET /streams/:id/events, and GET /streams/:id endpoints.
 // These routes read stream records, historical events, and aggregations from the database.
 
 import { Prisma, type Stream } from "@prisma/client";
@@ -17,6 +17,7 @@ import {
   decodeCursor,
   getStream,
   listStreams,
+  listTokens,
 } from "../repositories/streams.js";
 
 import {
@@ -32,6 +33,10 @@ import {
   STREAM_SUMMARY_RESPONSE_SCHEMA_ID,
   streamViewSchema,
   STREAM_VIEW_SCHEMA_ID,
+  TOKEN_LIST_RESPONSE_SCHEMA_ID,
+  TOKEN_SUMMARY_SCHEMA_ID,
+  tokenListResponseSchema,
+  tokenSummarySchema,
 } from "../schema.js";
 import { listIndexedEvents, type IndexedEventKind } from "../repositories/indexed-events.js";
 import { nowSeconds } from "../lib/time.js";
@@ -126,6 +131,12 @@ export async function streamRoutes(
   if (!app.getSchema(STREAM_EVENT_SCHEMA_ID)) app.addSchema(streamEventSchema);
   if (!app.getSchema(STREAM_EVENT_HISTORY_RESPONSE_SCHEMA_ID)) {
     app.addSchema(streamEventHistoryResponseSchema);
+  }
+  if (!app.getSchema(TOKEN_SUMMARY_SCHEMA_ID)) {
+    app.addSchema(tokenSummarySchema);
+  }
+  if (!app.getSchema(TOKEN_LIST_RESPONSE_SCHEMA_ID)) {
+    app.addSchema(tokenListResponseSchema);
   }
   if (!app.getSchema(ERROR_SCHEMA_ID)) app.addSchema(apiErrorSchema);
 
@@ -325,6 +336,27 @@ export async function streamRoutes(
         `public, max-age=${Math.floor(summaryCacheTtlMs / 1000)}`,
       );
       return payload;
+    },
+  );
+
+  app.get(
+    "/tokens",
+    {
+      schema: {
+        summary: "List distinct tokens",
+        description:
+          "Returns each distinct token with its stream count and total escrowed amount. " +
+          "Totals are aggregated in the database over decimal columns, so they never lose precision.",
+        tags: ["streams"],
+        response: {
+          200: { $ref: TOKEN_LIST_RESPONSE_SCHEMA_ID },
+        },
+      },
+    },
+    async (_request, reply) => {
+      const tokens = await listTokens();
+      reply.header("Cache-Control", "public, max-age=30");
+      return tokens;
     },
   );
 
