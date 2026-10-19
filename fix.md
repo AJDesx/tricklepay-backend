@@ -16,18 +16,8 @@ cd tricklepay-backend
 git remote add upstream https://github.com/TricklePay/tricklepay-backend.git
 Create a branch for this issue:
 
-<<<<<<< HEAD
 git checkout -b feat/issue-485
 Suggested commit message:
 
 feat: add an account summary endpoint
 Run npm run typecheck, npm test, and npm run build before opening a pull request and linking this issue.
-=======
-git checkout -b feat/issue-486
-Suggested commit message:
-
-feat: support HEAD on the stream detail route
-Run npm run typecheck, npm test, and npm run build before opening a pull request and linking this issue.
-
-
->>>>>>> ab522ad (feat: support HEAD on the stream detail route)
